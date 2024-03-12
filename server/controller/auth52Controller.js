@@ -1,67 +1,66 @@
-// Example code to handle user registration and authentication
-
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const db = require('./db');
+const db = require('../db/db');
 
-// Function to hash the user's password
 async function hashPassword(password) {
   const saltRounds = 10;
   return await bcrypt.hash(password, saltRounds);
 }
 
-// Function to verify the user's password
 async function verifyPassword(password, hashedPassword) {
   return await bcrypt.compare(password, hashedPassword);
 }
 
-// Function to generate a JWT token
 function generateToken(user) {
-  const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-  return token;
+  return jwt.sign({ userId: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
 }
 
-// User registration endpoint
-app.post('/register', async (req, res) => {
-  const { username, email, password } = req.body;
+exports.register = async (req, res) => {
+  const { email, password } = req.body;
 
   try {
     const hashedPassword = await hashPassword(password);
-    const query = 'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *';
-    const { rows } = await db.query(query, [username, email, hashedPassword]);
+    const query = 'INSERT INTO users (email, password) VALUES ($1, $2) RETURNING id, email';
+    const { rows } = await db.query(query, [email, hashedPassword]);
     const user = rows[0];
     const token = generateToken(user);
-    res.json({ user, token });
+
+    // Set the token as an HTTP-only cookie in the response headers
+    res.cookie('token', token, { httpOnly: true, maxAge: 3600000 }); // Max age set to 1 hour
+
+    res.status(201).json({ message: 'Registration successful', user });
   } catch (error) {
     console.error('Error during user registration:', error);
     res.status(500).json({ error: 'An error occurred during user registration.' });
   }
-});
+};
 
-// User authentication endpoint
-app.post('/login', async (req, res) => {
-  const { username, password } = req.body;
+exports.login = async (req, res) => {
+  const { email, password } = req.body;
 
   try {
-    const query = 'SELECT * FROM users WHERE username = $1';
-    const { rows } = await db.query(query, [username]);
+    const query = 'SELECT id, email, password FROM users WHERE email = $1';
+    const { rows } = await db.query(query, [email]);
     const user = rows[0];
 
     if (!user) {
-      return res.status(401).json({ error: 'Invalid username or password.' });
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const passwordMatch = await verifyPassword(password, user.password);
 
     if (!passwordMatch) {
-      return res.status(401).json({ error: 'Invalid username or password.' });
+      return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     const token = generateToken(user);
-    res.json({ user, token });
+
+    // Set the token as an HTTP-only cookie in the response headers
+    res.cookie('token', token, { httpOnly: true, maxAge: 3600000 }); // Max age set to 1 hour
+
+    res.json({ message: 'Login successful', user: { id: user.id, email: user.email } });
   } catch (error) {
     console.error('Error during user authentication:', error);
     res.status(500).json({ error: 'An error occurred during user authentication.' });
   }
-});
-
+};

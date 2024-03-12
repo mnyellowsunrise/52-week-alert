@@ -1,7 +1,7 @@
 
 const express = require('express');
 const router = express.Router();
-const { register, login } = require('../controllers/auth52Controller');
+const { register, login } = require('../controller/auth52Controller');
 
 // User registration route
 router.post('/register', register);

@@ -4,7 +4,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL_52weekDB,
+  connectionString: process.env.DATABASE_URL_52WEEK,
 });
 
 module.exports = {
